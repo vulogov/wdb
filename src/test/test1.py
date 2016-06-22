@@ -4,14 +4,14 @@ import whitepy
 
 a = whitepy.Whitedb("1001", 10240000, True, True)
 print a
-print len(a)
-print a.dbsize()
-print a.free()
-print a.dump("/tmp/dbdump")
-print a.load("/tmp/dbdump")
-print a.startlogging()
-print a.stoplogging()
-print a.close()
-print a.drop()
+print "DB size",len(a)
+print "DB total size",a.dbsize()
+print "DB free space",a.free()
+print "Dump DB", a.dump("/tmp/dbdump")
+print "LOAD DB",a.load("/tmp/dbdump")
+print "Start logging",a.startlogging()
+print "Stop logging",a.stoplogging()
+print "Close DB",a.close()
+print "Drop DB",a.drop()
 
 
