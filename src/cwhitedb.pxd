@@ -2,12 +2,13 @@ cdef extern from "stdlib.h":
     ctypedef void const_void "const void"
 
 cdef extern from "whitedb/dbapi.h":
+
     ctypedef ptrdiff_t wg_int
     ctypedef void* DB
     ctypedef void* REC
     ctypedef struct wg_query_arg:
         pass
-    ctypedef wg_query_arg* QUERY
+    ctypedef wg_query_arg * QUERY
     DB wg_attach_database(char* dbasename, wg_int size) nogil
     DB wg_attach_existing_database(char* dbasename)
     int wg_detach_database(const void* dbase) nogil
@@ -40,3 +41,8 @@ cdef extern from "whitedb/dbapi.h":
     char* wg_decode_str(void* db, wg_int data) nogil
     wg_int wg_encode_blob(DB db, char* str, char* type, wg_int len)
     char* wg_decode_blob(DB db, wg_int data) nogil
+
+cdef extern from "whitedb/indexapi.h":
+    wg_int wg_create_index(DB db, wg_int column, wg_int type,wg_int *matchrec, wg_int reclen)
+    wg_int wg_drop_index(DB db, wg_int index_id)
+    wg_int wg_column_to_index_id(DB db, wg_int column, wg_int type,wg_int *matchrec, wg_int reclen)

@@ -4,8 +4,37 @@ try:
 except:
     raise ImportError,"simplejson is required module"
 
-DATETYPE=11
-BLOBTYPE=8
+cdef extern from "whitedb/dbapi.h":
+    cdef int WG_NULLTYPE
+    cdef int WG_RECORDTYPE
+    cdef int WG_INTTYPE
+    cdef int WG_DOUBLETYPE
+    cdef int WG_STRTYPE
+    cdef int WG_XMLLITERALTYPE
+    cdef int WG_URITYPE
+    cdef int WG_BLOBTYPE
+    cdef int WG_CHARTYPE
+    cdef int WG_FIXPOINTTYPE
+    cdef int WG_DATETYPE
+    cdef int WG_TIMETYPE
+cdef extern from "whitedb/indexapi.h":
+    cdef int WG_INDEX_TYPE_TTREE
+
+
+NULLTYPE=WG_NULLTYPE
+RECORDTYPE=WG_RECORDTYPE
+INTTYPE=WG_INTTYPE
+DOUBLETYPE=WG_DOUBLETYPE
+STRTYPE=WG_STRTYPE
+XMLLITERALTYPE=WG_XMLLITERALTYPE
+URITYPE=WG_URITYPE
+BLOBTYPE=WG_BLOBTYPE
+CHARTYPE=WG_CHARTYPE
+FIXPOINTTYPE=WG_FIXPOINTTYPE
+DATETYPE=WG_DATETYPE
+TIMETYPE=WG_TIMETYPE
+
+INDEX_TYPE_TTREE=WG_INDEX_TYPE_TTREE
 
 cdef class Record:
     cdef void* db
@@ -76,13 +105,13 @@ cdef class Record:
             return None
         _t = cwhitedb.wg_get_field_type(<void*>self.db, <void*>self.record, fld)
         _d = cwhitedb.wg_get_field(<void*>self.db, <void*>self.record, fld)
-        if _t == 3:
+        if _t == INTTYPE:
             res = cwhitedb.wg_decode_int(<void*>self.db, _d)
-        elif _t == 4:
+        elif _t == DOUBLETYPE:
             res = cwhitedb.wg_decode_double(<void*>self.db, _d)
-        elif _t == 5:
+        elif _t == STRTYPE:
             res = cwhitedb.wg_decode_str(<void*>self.db, _d)
-        elif _t == 8:
+        elif _t == BLOBTYPE:
             res = cwhitedb.wg_decode_blob(<void*>self.db, _d)
         else:
             res = None
@@ -148,19 +177,27 @@ cdef class Whitedb:
         self.close()
     def close(self):
         if not self.ready:
-            return -2
+            return False
         if self.isLog == True:
             self.stoplogging()
         res = cwhitedb.wg_detach_database(self.db)
+        # print "C",self.name,res
         self.ready = False
-        return res
+        if res != 0:
+            return False
+        return True
     def drop(self):
-        if not self.ready:
-            return -2
+        # print "D",self.name,self.ready
+        if self.ready:
+            if self.close() != True:
+                return False
         res = cwhitedb.wg_delete_database(self.name)
+        # print "DROP",res
         if res == 0:
             self.ready = False
-        return res
+        if res != 0:
+            return False
+        return True
     def dbsize(self):
         if not self.ready:
             return -2
@@ -184,7 +221,6 @@ cdef class Whitedb:
             return -2
         if self.isLog == True:
             self.stoplogging()
-        print "startlog",self.name
         self.isLog = True
         return cwhitedb.wg_start_logging(self.db)
     def stoplogging(self):
@@ -224,7 +260,36 @@ cdef class Whitedb:
             self.ro_lock = 0
     def listOfJournals(self):
         return []
+    def create_index(self, fld):
+        if not self.ready:
+            return False
+        ix = cwhitedb.wg_column_to_index_id(self.db, fld, INDEX_TYPE_TTREE, NULL, 0)
+        if ix != -1:
+            return True
+        res = cwhitedb.wg_create_index(self.db, fld, INDEX_TYPE_TTREE, NULL, 0)
+        if res != 0:
+            return False
+        return True
+    def drop_index(self, fld):
+        if not self.ready:
+            return False
+        ix = cwhitedb.wg_column_to_index_id(self.db, fld, INDEX_TYPE_TTREE, NULL, 0)
+        if ix == -1:
+            return False
+        res = cwhitedb.wg_drop_index(self.db, ix)
+        if res != 0:
+            return False
+        return True
 
+class KEYDB:
+    def INIT(self):
+        pass
+
+class TIMESERIESDB:
+    def INIT(self):
+        pass
+
+DRIVERS={'KEYDB':KEYDB, 'TIMESERIESDB':TIMESERIESDB}
 
 class DB:
     def __init__(self, _id, name, schema):
@@ -241,11 +306,21 @@ class DB:
             self.schema["logging"] = self.logging
         else:
             self.logging = self.schema["logging"]
+        if schema.has_key("type") and schema["type"] in DRIVERS.keys():
+            _b = list(self.__class__.__bases__)
+            _b.append(DRIVERS[schema["type"]])
+            self.__class__.__bases__ = tuple(_b)
         self.db = Whitedb(str(_id), self.size, True, self.logging)
     def DB(self):
         return self.db
+    def CLOSE(self):
+        return self.db.close()
     def DROP(self):
-        self.db.drop()
+        return self.db.drop()
+    def INDEX(self, fld):
+        self.db.create_index(fld)
+    def DROP_INDEX(self, fld):
+        self.db.drop_index(fld)
     def __add__(self, rec):
         _rec = self.db.record(len(self.schema["fields"].keys()))
         self.db.start_write()
@@ -267,7 +342,10 @@ class WDB:
         self.catalogdb = catalogdb
         self.catalogsize = catalogsize
         self.catalog = Whitedb(self.catalogdb, self.catalogsize, True, True)
+        self.catalog.create_index(0)
+        self.catalog.create_index(1)
         self.dir = {}
+        self.reloadCatalog()
     def reloadCatalog(self):
         cur = self.catalog.cursor()
         rec = cur.first()
@@ -292,7 +370,9 @@ class WDB:
         self.reloadCatalog()
         for m in self.dir.keys():
             if name == self.dir[m]["name"]:
-                return self.getDB(m)
+                db = self.getDB(m)
+                db.INDEX(0)
+                return db
         self.catalog.start_write()
         ids = self.dir.keys()
         ids.sort()
@@ -310,7 +390,20 @@ class WDB:
         rec.set(2, simplejson.dumps(schema))
         self.catalog.stoplogging()
         self.catalog.commit()
-        return DB(nextid, name, schema)
+        db = DB(nextid, name, schema)
+        for f in schema["fields"].keys():
+            if schema["fields"][f][1] == True:
+                db.INDEX(schema["fields"][f][0])
+        return db
+    def DROP(self):
+        for _db in self.dir.keys():
+            db = self.getDB(_db)
+            db.CLOSE()
+            if db.DROP() != True:
+                return False
+        self.catalog.close()
+        return self.catalog.drop()
+
 
 
 

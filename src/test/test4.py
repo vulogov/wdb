@@ -4,9 +4,11 @@ import whitepy
 
 a = whitepy.WDB()
 print a
-db = a.Create("test", {"size": 1000000, "logging":True, "fields":{"a":(0, False),"b":(1, False), "c":(2, False)}})
+db = a.Create("test", {"type":"CFGDB","size": 1000000, "logging":True, "fields":{"a":(0, True),"b":(1, True), "c":(2, False)}})
 print db.schema, db._id
-db = db + {"a":42, "b":3.14, "c":"hello world"}
-db.DROP()
+for i in range(100):
+    db = db + {"a":i, "b":3.14, "c":"hello world"}
+print "CLOSE DB",db.CLOSE()
+#print "DROP DB",db.DROP()
 
 
