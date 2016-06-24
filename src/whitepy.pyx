@@ -146,6 +146,9 @@ cdef class Cursor:
         rec = Record(0)
         rec.make(self.db, _rec)
         return rec
+    def query(self, **q):
+        return
+
 
 
 
