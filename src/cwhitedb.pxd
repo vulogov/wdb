@@ -7,8 +7,10 @@ cdef extern from "whitedb/dbapi.h":
     ctypedef void* DB
     ctypedef void* REC
     ctypedef struct wg_query_arg:
-        pass
-    ctypedef wg_query_arg * QUERY
+        gint column
+        gint cond
+        gint value
+    ctypedef wg_query_arg* QUERY
     DB wg_attach_database(char* dbasename, wg_int size) nogil
     DB wg_attach_existing_database(char* dbasename)
     int wg_detach_database(const void* dbase) nogil

@@ -17,6 +17,11 @@ cdef extern from "whitedb/dbapi.h":
     cdef int WG_FIXPOINTTYPE
     cdef int WG_DATETYPE
     cdef int WG_TIMETYPE
+    cdef int WG_COND_EQUAL
+    cdef int WG_COND_NOT_EQUAL
+    cdef int WG_COND_GREATER
+    
+
 cdef extern from "whitedb/indexapi.h":
     cdef int WG_INDEX_TYPE_TTREE
 
@@ -147,6 +152,9 @@ cdef class Cursor:
         rec.make(self.db, _rec)
         return rec
     def query(self, **q):
+        from cymem.cymem cimport Pool
+        mem = Pool()
+        data =
         return
 
 
