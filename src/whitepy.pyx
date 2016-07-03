@@ -1,4 +1,6 @@
 cimport cwhitedb
+from cymem.cymem cimport Pool
+
 try:
     import simplejson
 except:
@@ -20,6 +22,9 @@ cdef extern from "whitedb/dbapi.h":
     cdef int WG_COND_EQUAL
     cdef int WG_COND_NOT_EQUAL
     cdef int WG_COND_GREATER
+    cdef int WG_COND_LESSTHAN
+    cdef int WG_COND_LTEQUAL
+    cdef int WG_COND_GTEQUAL
     
 
 cdef extern from "whitedb/indexapi.h":
@@ -38,6 +43,14 @@ CHARTYPE=WG_CHARTYPE
 FIXPOINTTYPE=WG_FIXPOINTTYPE
 DATETYPE=WG_DATETYPE
 TIMETYPE=WG_TIMETYPE
+
+COND_EQUAL=WG_COND_EQUAL
+COND_NOT_EQUAL=WG_COND_NOT_EQUAL
+COND_GREATER=WG_COND_GREATER
+COND_LESSTHAN=WG_COND_LESSTHAN
+COND_LTEQUAL=WG_COND_LTEQUAL
+COND_GTEQUAL=WG_COND_GTEQUAL
+
 
 INDEX_TYPE_TTREE=WG_INDEX_TYPE_TTREE
 
@@ -133,6 +146,11 @@ cdef class Record:
         return rec
 
 
+ctypedef struct wg_query_arg:
+        int column
+        int cond
+        int value
+ctypedef wg_query_arg* QUERY
 
 
 cdef class Cursor:
@@ -152,9 +170,15 @@ cdef class Cursor:
         rec.make(self.db, _rec)
         return rec
     def query(self, **q):
-        from cymem.cymem cimport Pool
-        mem = Pool()
-        data =
+        cdef Pool mem = Pool()
+        cdef QUERY _q = <QUERY>mem.alloc(len(q), sizeof(cwhitedb.wg_query_arg))
+        c = 0
+        for i in q:
+            _q[c].column = i[0]
+            _q[c].cond = i[1]
+            _q[c].value = i[2]
+            c += 1
+
         return
 
 
